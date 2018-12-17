@@ -7,6 +7,15 @@ namespace NeuralNetwork
 {
     static public class ExtensionMethods
     {
+        static public IEnumerable<KeyValuePair<T,Y>> Zip<T,Y>(this IEnumerable<T> en1, IEnumerable<Y> en2)
+        {
+            var en1Enumerator = en1.GetEnumerator();
+            foreach(var obj in en2)
+            {
+                en1Enumerator.MoveNext();
+                yield return new KeyValuePair<T, Y>(en1Enumerator.Current, obj);
+            }
+        }
 
         static public void Mutate(this List<Neuron> source)
         {
@@ -21,32 +30,29 @@ namespace NeuralNetwork
                 int n = male.Count;
                 int crossIndex = NeuralNet.RandomGenerator.Next(0, n);
                 int i = 0;
-                var femaleIEnumerator = female.GetEnumerator();
-                foreach (var neuron in male)
+        
+                foreach (var neuron in male.Zip(female))
                 {
-                    femaleIEnumerator.MoveNext();
                     if (i < crossIndex)
                     {
                         i++;
                         continue;
                     }
-                    var femaleInputSynapsesIEnumerator = femaleIEnumerator.Current.InputSynapses.GetEnumerator();
+
                     if (i > crossIndex)
-                        foreach (var synapse in neuron.InputSynapses)
+                        foreach (var synapse in neuron.Key.InputSynapses.Zip(neuron.Value.InputSynapses))
                         {
-                            femaleInputSynapsesIEnumerator.MoveNext();
-                            synapse.Weight = femaleInputSynapsesIEnumerator.Current.Weight;
+                            synapse.Key.Weight = synapse.Value.Weight;
                         }
                     if (i == crossIndex)
                     {
                         int j = 0;
-                        int crossSynapseIndex = NeuralNet.RandomGenerator.Next(0, neuron.InputSynapses.Count - 1);
-                        foreach (var synapse in neuron.InputSynapses)
+                        int crossSynapseIndex = NeuralNet.RandomGenerator.Next(0, neuron.Key.InputSynapses.Count - 1);
+                        foreach (var synapse in neuron.Key.InputSynapses.Zip(neuron.Value.InputSynapses))
                         {
-                            femaleInputSynapsesIEnumerator.MoveNext();
                             if (j >= crossSynapseIndex)
                             {
-                                synapse.Weight = femaleInputSynapsesIEnumerator.Current.Weight;
+                                synapse.Key.Weight = synapse.Value.Weight;
                             }
                             j++;
                         }
@@ -59,32 +65,27 @@ namespace NeuralNetwork
                 int n = male.Count;
                 int crossIndex = NeuralNet.RandomGenerator.Next(0, n);
                 int i = 0;
-                var femaleIEnumerator = female.GetEnumerator();
-                foreach (var neuron in male)
+                foreach (var neuron in male.Zip(female))
                 {
-                    femaleIEnumerator.MoveNext();
                     if (i > crossIndex)
                     {
                         i++;
                         continue;
                     }
-                    var femaleInputSynapsesIEnumerator = femaleIEnumerator.Current.InputSynapses.GetEnumerator();
                     if (i < crossIndex)
-                        foreach (var synapse in neuron.InputSynapses)
+                        foreach (var synapse in neuron.Key.InputSynapses.Zip(neuron.Value.InputSynapses))
                         {
-                            femaleInputSynapsesIEnumerator.MoveNext();
-                            synapse.Weight = femaleInputSynapsesIEnumerator.Current.Weight;
+                            synapse.Key.Weight = synapse.Value.Weight;
                         }
                     if (i == crossIndex)
                     {
                         int j = 0;
-                        int crossSynapseIndex = NeuralNet.RandomGenerator.Next(0, neuron.InputSynapses.Count - 1);
-                        foreach (var synapse in neuron.InputSynapses)
+                        int crossSynapseIndex = NeuralNet.RandomGenerator.Next(0, neuron.Key.InputSynapses.Count - 1);
+                        foreach (var synapse in neuron.Key.InputSynapses.Zip(neuron.Value.InputSynapses))
                         {
-                            femaleInputSynapsesIEnumerator.MoveNext();
                             if (j < crossSynapseIndex)
                             {
-                                synapse.Weight = femaleInputSynapsesIEnumerator.Current.Weight;
+                                synapse.Key.Weight = synapse.Value.Weight;
                             }
                             j++;
                         }
