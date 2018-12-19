@@ -67,11 +67,9 @@ namespace NeuralNetwork
         public void Crossover(NeuralNet partner)
         {
             OutputLayer.Crossover(partner.OutputLayer);
-            var layerIEnumerator = partner.HiddenLayers.GetEnumerator();
-            foreach(var layer in HiddenLayers)
+            foreach(var layer in HiddenLayers.Zip(partner.HiddenLayers))
             {
-                layerIEnumerator.MoveNext();
-                layer.Crossover(layerIEnumerator.Current);
+                layer.Key.Crossover(layer.Value);
             }
         }
     }

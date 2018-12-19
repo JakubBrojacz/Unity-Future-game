@@ -7,7 +7,7 @@ using System.Linq;
 
 
 
-
+//game-object spawning agents and controlling their behaviour
 public class Population : MonoBehaviour {
 
 	// Use this for initialization
@@ -54,7 +54,7 @@ public class Population : MonoBehaviour {
                 {
                     var position = tilemap.LocalToCell(agent.transform.position);
                     if (tilemap.GetTile(position) != null && tilemap.GetTile(position).name == "empty")
-                        agent.GetComponent<Agent>().Score = Mathf.Abs(position.x - con.initial_position.x)-Mathf.Abs(position.y- con.initial_position.y);
+                        agent.GetComponent<Agent>().Score = Mathf.Abs(position.x - con.initial_position.x) - Mathf.Abs(position.y- con.initial_position.y);
                 });
                 generation[0].GetComponent<SpriteRenderer>().sprite = blueSprite;
                 generation[0].transform.position += new Vector3(0, 0, 0.5f);
@@ -70,8 +70,8 @@ public class Population : MonoBehaviour {
                         agent.GetComponent<SpriteRenderer>().sprite = redSprite;
                         agent.transform.position += new Vector3(0, 0, -0.5f);
                     }
-                    if(i > 0)
-                        agent.GetComponent<Agent>().brain.Mutate();
+                    //if(i > 0)
+                    //    agent.GetComponent<Agent>().brain.Mutate();
                     if (i > 3)
                     {
                         agent.GetComponent<Agent>().brain.Crossover(generation[NeuralNet.RandomGenerator.Next(0,i/2)].GetComponent<Agent>().brain);
@@ -131,17 +131,20 @@ public class Population : MonoBehaviour {
 
     public void RunSingle()
     {
-        runSimulation = false;
-        runSingle = true;
-        foreach (var agent in generation)
-        {
-            agent.GetComponent<SpriteRenderer>().enabled = false;
-        }
-        generation[0].GetComponent<SpriteRenderer>().enabled = true;
+        throw new System.NotImplementedException();
+        //runSimulation = false;
+        //runSingle = true;
+        //foreach (var agent in generation)
+        //{
+        //    agent.GetComponent<SpriteRenderer>().enabled = false;
+        //}
+        //generation[0].GetComponent<SpriteRenderer>().enabled = true;
     }
 
+    
     private void UpdateAgent(GameObject agent)
-    {
+    {  
+        //chceck if agent can move
         if (agent.GetComponent<Agent>().finished)
             return;
         var position = tilemap.LocalToCell(agent.transform.position);
@@ -165,9 +168,9 @@ public class Population : MonoBehaviour {
             return;
         }
         //agent.GetComponent<Agent>().Score++;              -> points for time
-        List<double> brainInput = new List<double>();
-        //Debug.Log(tilemap.GetTile(position));
 
+        //calc input wector
+        List<double> brainInput = new List<double>();
         //brainInput.Add(FindColorInDircetion("green", new Vector3Int(1, 0, 0), position));
         //brainInput.Add(FindColorInDircetion("green", new Vector3Int(-1, 0, 0), position));
         //brainInput.Add(FindColorInDircetion("green", new Vector3Int(0, 1, 0), position));
@@ -180,25 +183,25 @@ public class Population : MonoBehaviour {
         brainInput.Add(FindColorInDircetion("black", new Vector3Int(-1, 1, 0), position));
         brainInput.Add(FindColorInDircetion("black", new Vector3Int(1, -1, 0), position));
         brainInput.Add(FindColorInDircetion("black", new Vector3Int(-1, -1, 0), position));
-
+        foreach (var inp in agent.GetComponent<Agent>().LookAtYourself())
+            brainInput.Add(inp);
         
-
+        //get next move
         var brainOutput = agent.GetComponent<Agent>().brain.Predict(brainInput);
-        
         int maxIndex = brainOutput.IndexOf(brainOutput.Max());
         switch(maxIndex)
         {
             case 0:
-                agent.transform.position += new Vector3(1, 0);
+                agent.GetComponent<Agent>().MoveInDirection(new Vector3(1, 0));
                 break;
             case 1:
-                agent.transform.position += new Vector3(-1, 0);
+                agent.GetComponent<Agent>().MoveInDirection(new Vector3(-1, 0));
                 break;
             case 2:
-                agent.transform.position += new Vector3(0,1);
+                agent.GetComponent<Agent>().MoveInDirection(new Vector3(0,1));
                 break;
             case 3:
-                agent.transform.position += new Vector3(0,-1);
+                agent.GetComponent<Agent>().MoveInDirection(new Vector3(0,-1));
                 break;
             default:
                 Debug.Log("ERROR, unnown direction");
@@ -208,6 +211,9 @@ public class Population : MonoBehaviour {
 
     private double FindColorInDircetion(string color,Vector3Int direction, Vector3Int origin)
     {
+        //returns 1/distance from tile of that given color (as string)
+
+        /*
         var pos1 = origin;
         pos1 += direction;
         int i = 1;
@@ -221,5 +227,13 @@ public class Population : MonoBehaviour {
             i++;
         }
         return 0;
+        */
+
+        if (tilemap.GetTile(origin+direction).name == color)
+        {
+            return 1;
+        }
+        return 0;
+
     }
 }

@@ -42,7 +42,7 @@ namespace NeuralNetwork
             else if (ran > 4)
                 InputSynapses.ForEach(syn => 
                 {
-                    if (NeuralNet.RandomGenerator.Next(1, 2) == 1) syn.Weight *= 1 + (NeuralNet.RandomGenerator.NextDouble() - 0.5) / 2;
+                    if (NeuralNet.RandomGenerator.Next(1, 2) == 1) syn.Weight *= 1 + (NeuralNet.RandomGenerator.NextDouble() - 0.5) / 5;
                 });
             else if (ran == 2)
                 InputSynapses.ForEach(syn =>
