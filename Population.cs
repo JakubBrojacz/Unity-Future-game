@@ -35,7 +35,7 @@ public class Population : MonoBehaviour {
 	
 	// Update is called once per frame
 	void Update () {
-        if (runSimulation || runSingle)
+        if (con.runSimulation)
         {
             update_time_left -= Time.deltaTime;
 
@@ -46,21 +46,22 @@ public class Population : MonoBehaviour {
                 simulation_ticks_left--;
             }
         }
-        if(runSimulation)
+        if(con.runSimulation)
         { 
             if(simulation_ticks_left <= 0)
             {
                 generation.ForEach(agent =>
                 {
-                    var position = tilemap.LocalToCell(agent.transform.position);
-                    if (tilemap.GetTile(position) != null && tilemap.GetTile(position).name == "empty")
-                        agent.GetComponent<Agent>().Score = Mathf.Abs(position.x - con.initial_position.x) - Mathf.Abs(position.y- con.initial_position.y);
+                    //var position = tilemap.LocalToCell(agent.transform.position);
+                    //if (tilemap.GetTile(position) != null && tilemap.GetTile(position).name == "empty")
+                    //    agent.GetComponent<Agent>().Score = Mathf.Abs(position.x - con.initial_position.x) - Mathf.Abs(position.y- con.initial_position.y);
                 });
                 generation[0].GetComponent<SpriteRenderer>().sprite = blueSprite;
                 generation[0].transform.position += new Vector3(0, 0, 0.5f);
                 generation.Sort((a1,a2) => -a1.GetComponent<Agent>().Score.CompareTo(a2.GetComponent<Agent>().Score));
                 Debug.Log("Srednia: " + generation.Sum(a => a.GetComponent<Agent>().Score)/generation.Count);
-                Debug.Log("Liczba najlepszych: " + generation.Sum(a => a.GetComponent<Agent>().Score > 5 ? 1:0));
+                Debug.Log("Liczba najlepszych: " + generation.Sum(a => a.GetComponent<Agent>().Score == generation[0].GetComponent<Agent>().Score ? 1:0));
+                Debug.Log("Najlepszy wynik: " + generation[0].GetComponent<Agent>().Score);
                 var tmp = generation[0];
                 int i = 0;
                 foreach(var agent in generation)
@@ -76,19 +77,22 @@ public class Population : MonoBehaviour {
                     {
                         agent.GetComponent<Agent>().brain.Crossover(generation[NeuralNet.RandomGenerator.Next(0,i/2)].GetComponent<Agent>().brain);
                     }
-                    if (i > 45)
+                    if (i > 50)
                     {
                         agent.GetComponent<Agent>().brain.Mutate();
                     }
-                    if (i>90)
+                    if (i>150)
                     {
                         agent.GetComponent<Agent>().brain.Mutate();
                         agent.GetComponent<Agent>().brain.Mutate();
                     }
-                    agent.transform.position = new Vector3(con.initial_position.x+0.5f, con.initial_position.y+0.5f, agent.transform.position.z);
-                    agent.GetComponent<Agent>().Score = 0;
+                    if (i > 900)
+                    {
+                        agent.GetComponent<Agent>().brain.Mutate();
+                        agent.GetComponent<Agent>().brain.Mutate();
+                    }
+                    agent.GetComponent<Agent>().Reset(new Vector3(con.initial_position.x + 0.5f, con.initial_position.y + 0.5f, agent.transform.position.z));
                     i++;
-                    agent.GetComponent<Agent>().finished = false;
                 }
                 simulation_ticks_left = con.number_of_ticks_every_simulation;
             }
@@ -99,8 +103,7 @@ public class Population : MonoBehaviour {
 
     public int populationSize=100;
 
-    public bool runSimulation = false;
-    public bool runSingle = false;
+
 
     public List<GameObject> generation;
 
@@ -119,27 +122,15 @@ public class Population : MonoBehaviour {
 
     public void OnButtonClick()
     {
-        runSingle = false;
-        if (runSimulation)
+        if (con.runSimulation)
         {
-            runSimulation = false;
+            con.runSimulation = false;
             return;
         }
-        runSimulation = true;
+        con.runSimulation = true;
         
     }
 
-    public void RunSingle()
-    {
-        throw new System.NotImplementedException();
-        //runSimulation = false;
-        //runSingle = true;
-        //foreach (var agent in generation)
-        //{
-        //    agent.GetComponent<SpriteRenderer>().enabled = false;
-        //}
-        //generation[0].GetComponent<SpriteRenderer>().enabled = true;
-    }
 
     
     private void UpdateAgent(GameObject agent)
@@ -147,7 +138,7 @@ public class Population : MonoBehaviour {
         //chceck if agent can move
         if (agent.GetComponent<Agent>().finished)
             return;
-        var position = tilemap.LocalToCell(agent.transform.position);
+        Vector3Int position = tilemap.LocalToCell(agent.transform.position);
         if (tilemap.GetTile(position) == null)
         {
             //agent.GetComponent<Agent>().Score = 20 - simulation_ticks_left;
@@ -156,18 +147,20 @@ public class Population : MonoBehaviour {
         }
         if (tilemap.GetTile(position).name == "green")
         {
-            agent.GetComponent<Agent>().Score = 1000;
-            agent.GetComponent<Agent>().finished = true;
-            return;
+            agent.GetComponent<Agent>().StepOnTile(position);
+            //agent.GetComponent<Agent>().Score = 1000;
+            //agent.GetComponent<Agent>().finished = true;
+            //return;
         }
         if (tilemap.GetTile(position).name == "black")
         {
             //agent.GetComponent<Agent>().Score = 0;
-            agent.GetComponent<Agent>().Score = Mathf.Abs(position.x - con.initial_position.x) - Mathf.Abs(position.y - con.initial_position.y);
+            //agent.GetComponent<Agent>().Score = Mathf.Abs(position.x - con.initial_position.x) - Mathf.Abs(position.y - con.initial_position.y);
             agent.GetComponent<Agent>().finished = true;
             return;
         }
         //agent.GetComponent<Agent>().Score++;              -> points for time
+        
 
         //calc input wector
         List<double> brainInput = new List<double>();
@@ -179,10 +172,10 @@ public class Population : MonoBehaviour {
         brainInput.Add(FindColorInDircetion("black", new Vector3Int(-1, 0, 0), position));
         brainInput.Add(FindColorInDircetion("black", new Vector3Int(0, 1, 0), position));
         brainInput.Add(FindColorInDircetion("black", new Vector3Int(0, -1, 0), position));
-        brainInput.Add(FindColorInDircetion("black", new Vector3Int(1, 1, 0), position));
-        brainInput.Add(FindColorInDircetion("black", new Vector3Int(-1, 1, 0), position));
-        brainInput.Add(FindColorInDircetion("black", new Vector3Int(1, -1, 0), position));
-        brainInput.Add(FindColorInDircetion("black", new Vector3Int(-1, -1, 0), position));
+        //brainInput.Add(FindColorInDircetion("black", new Vector3Int(1, 1, 0), position));
+        //brainInput.Add(FindColorInDircetion("black", new Vector3Int(-1, 1, 0), position));
+        //brainInput.Add(FindColorInDircetion("black", new Vector3Int(1, -1, 0), position));
+        //brainInput.Add(FindColorInDircetion("black", new Vector3Int(-1, -1, 0), position));
         foreach (var inp in agent.GetComponent<Agent>().LookAtYourself())
             brainInput.Add(inp);
         

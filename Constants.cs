@@ -19,4 +19,5 @@ public class Constants : MonoBehaviour {
     public float seconds_every_tic = 0.5f;
     public int number_of_ticks_every_simulation = 10;
     public Vector3 initial_position = new Vector3(5, 0, -1); //where to spanw agents
+    public bool runSimulation = false;
 }
