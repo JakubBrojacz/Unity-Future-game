@@ -46,11 +46,9 @@ namespace NeuralNetwork
 
         public void ForwardPropagation(IEnumerable<double> inputValues)
         {
-            var inputIenumerator = inputValues.GetEnumerator();
-            foreach(var neuron in InputLayer)
+            foreach(var neuron in InputLayer.Zip(inputValues))
             {
-                inputIenumerator.MoveNext();
-                neuron.Value = inputIenumerator.Current;
+                neuron.Key.Value = neuron.Value;
             }
             foreach (var layer in HiddenLayers)
                 layer.ForEach(neuron => neuron.CalculateValue());
@@ -64,13 +62,14 @@ namespace NeuralNetwork
                 layer.Mutate();
         }
 
-        public void Crossover(NeuralNet partner)
+        public NeuralNet Crossover(NeuralNet partner)
         {
             OutputLayer.Crossover(partner.OutputLayer);
             foreach(var layer in HiddenLayers.Zip(partner.HiddenLayers))
             {
                 layer.Key.Crossover(layer.Value);
             }
+            return this;
         }
     }
 }

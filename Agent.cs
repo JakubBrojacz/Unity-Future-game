@@ -1,21 +1,30 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using NeuralNetwork;
 
 public class Agent : MonoBehaviour {
 
-	// Use this for initialization
-	void Start () {
-        tail = Instantiate(tail_prefab, transform.position, Quaternion.identity).gameObject;
-        tiles = new HashSet<Vector3Int>();
+    // Use this for initialization
+    void Start() {
+        
     }
-	
-	// Update is called once per frame
-	void Update () {
-		
-	}
+
+    // Update is called once per frame
+    void Update() {
+
+    }
+    public void Init()
+    {
+        tail = Instantiate(tail_prefab, transform.position, Quaternion.identity).gameObject;
+        Score = 0.1;
+    }
+    //private void OnDestroy()
+    //{
+    //    Destroy(tail);
+    //}
 
     public void MoveInDirection(Vector3 dir)
     {
@@ -54,19 +63,41 @@ public class Agent : MonoBehaviour {
     public void Reset(Vector3 pos)
     {
         tiles.Clear();
-        Score = 0;
-        finished = false;
+        Score = 0.1;
+        Dead = false;
         transform.position = pos;
         tail.transform.position = pos;
     }
 
-    private HashSet<Vector3Int> tiles;
+    public bool Dead
+    {
+        get
+        {
+            return dead;
+        }
+        set
+        {
+            dead = value;
+            if (dead && OnDeath != null)
+                OnDeath.Invoke(this, null);
+        }
+    }
+        
+    public bool SameSpecies(Agent partner)
+    {
+        return brain.SameSpecies(partner.brain);
+    }
 
-    public NeuralNet brain;
+
+    private HashSet<Vector3Int> tiles = new HashSet<Vector3Int>();
+
+    public NEAT brain;
 
     public double Score = 0;
-    public bool finished = false;
+    private bool dead = false;
 
-    GameObject tail;
+    public GameObject tail;
     public Transform tail_prefab;
+
+    public event EventHandler OnDeath;
 }
