@@ -67,7 +67,7 @@ public class Population : MonoBehaviour {
                 update_time_left = con.seconds_every_tic;
                 generation.ForEach(agent => UpdateAgent(agent));
                 if (species.Count > con.spexies_drawn)
-                    visual.Assign(species[con.spexies_drawn].reprezentative.brain);
+                    visual.Assign(species[con.spexies_drawn].Reprezentative);
                 else
                     visual.Assign(generation[0].brain);
                 //visual.Assign(generation[con.spexies_drawn].brain);
@@ -88,40 +88,8 @@ public class Population : MonoBehaviour {
                 Debug.Log("Najlepszy wynik: " + generation[0].Score);
 #if false
                 int i = 0;
-#endif
                 foreach (var agent in generation)
                 {
-#if true
-                    //Spectation
-                    //chceck if agent is someones representative
-                    bool find_species = false;
-                    foreach (var s in species)
-                    {
-                        if (agent.brain == s.reprezentative.brain)
-                        {
-                            find_species = true;
-                            break;
-                        }
-                    }
-                    if (find_species)
-                        continue;
-                    //find maching species
-                    foreach (var s in species)
-                    {
-                        if (agent.SameSpecies(s.reprezentative))
-                        {
-                            find_species = true;
-                            s.Add(agent);
-                            break;
-                        }
-                    }
-                    if (!find_species)
-                    {
-                        species.Add(new Species(agent));
-                    }
-                }
-
-#else
                     if (i == 0)
                         agent.GetComponent<Agent>().brain.Mutate();
                     if (i > 3)
@@ -149,10 +117,11 @@ public class Population : MonoBehaviour {
                 }
 #endif
 #if true
+                species.Speciacte(generation);
                 //calculate size of spieces in next generation
                 foreach (var s in species)
                 {
-                    if (s.members.Count < 2)
+                    if (s.members.Count < 1)
                         s.Dead = true;
                     s.Score = s.members.Sum(a => a.Score)/s.members.Count;
                 }
@@ -165,21 +134,24 @@ public class Population : MonoBehaviour {
                 string tmp_str = "";
                 foreach (var s in species)
                 {
+                    //delete bad species
                     if(s.Score<1)
                     {
                         s.Dead = true;
                         continue;
                     }
-                    s.reprezentative.GetComponent<SpriteRenderer>().sprite = blueSprite;
-                    s.reprezentative.transform.position += new Vector3(0, 0, 0.5f);
+
+                    //mark leader
+                    //s.members[0].GetComponent<SpriteRenderer>().sprite = blueSprite;
+                    //s.members[0].transform.position += new Vector3(0, 0, 0.5f);
                     s.members.Sort((a1, a2) => -a1.Score.CompareTo(a2.Score));
-                    s.reprezentative.GetComponent<SpriteRenderer>().sprite = redSprite;
-                    s.reprezentative.transform.position += new Vector3(0, 0, -0.5f);
-                    var rep = s.reprezentative;
-                    generation.Add(rep);
+                    //s.members[0].GetComponent<SpriteRenderer>().sprite = redSprite;
+                    //s.members[0].transform.position += new Vector3(0, 0, -0.5f);
 
-                    tmp_str += "Licznosc gatunku " + s.Name + ": " + s.members.Count + "; Najwyzszy wynik: " + rep.Score + Environment.NewLine;
+                    //update information string
+                    tmp_str += "Licznosc gatunku " + s.Name + ": " + s.members.Count + "; Najwyzszy wynik: " + s.members[0].Score + Environment.NewLine;
 
+                    //create next generation
                     for (int i = 0; i < s.Score * 3.0 / 4.0; i++)
                     {
                         Transform offspring = Instantiate(agentPrefab, con.initial_position + new Vector3(0.5f, 0.5f, 0), Quaternion.identity);
@@ -208,14 +180,17 @@ public class Population : MonoBehaviour {
                         offspring.GetComponent<Agent>().OnDeath += AgentDied;
                         generation.Add(offspring.GetComponent<Agent>());
                     }
-                    s.members.RemoveAt(0);
+                    if(s.Score>4)
+                    {
+                        generation.Add(s.members[0]);
+                        s.members.RemoveAt(0);
+                    }
                     foreach (var agent in s.members)
                     {
                         Destroy(agent.tail);
                         Destroy(agent.gameObject);
                     }
                     s.members.Clear();
-                    s.members.Add(rep);
                 }
                 spieces_text.text = tmp_str;
                 species.RemoveAll(s => s.Dead);

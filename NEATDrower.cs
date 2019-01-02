@@ -31,7 +31,6 @@ namespace NeuralNetwork
             var newNode = Instantiate(nodePrefab, new Vector3(0, 0, 0), Quaternion.identity).gameObject;
             newNode.transform.localScale = new Vector3(radius, radius, radius);
             newNode.GetComponent<BallScript>().InnovationNo = n.InnovationNo;
-            newNode.GetComponent<BallScript>().NPL = n.NPL;
             if (n.Value > 0.5)
                 newNode.GetComponent<Renderer>().material.color = new Color(0, 1, 0);
             nodes.Add(newNode);

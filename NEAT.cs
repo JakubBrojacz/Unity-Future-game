@@ -62,7 +62,6 @@ namespace NeuralNetwork
             {
                 temporaryNeuronInnovationNumber++;
                 var tmp = new Neuron(temporaryNeuronInnovationNumber);
-                tmp.NPL = 0;
                 InputLayer.Add(tmp);
             }
 
@@ -78,7 +77,6 @@ namespace NeuralNetwork
                 else
                     tmp = new Neuron(InputLayer);
                 tmp.InnovationNo = temporaryNeuronInnovationNumber;
-                tmp.NPL = 1;
                 OutputLayer.Add(tmp);
             }
 
@@ -175,7 +173,7 @@ namespace NeuralNetwork
             else
             {
                 neuron2 = HiddenLayers[ineur2 - OutputLayer.Count];
-                if (neuron2.NPL < neuron1.NPL) //lets not make cycles
+                if (neuron1.ConnectionWouldMakeCycle(neuron2)) //lets not make cycles
                 {
                     Neuron tmp = neuron1;
                     neuron1 = neuron2;
@@ -186,27 +184,17 @@ namespace NeuralNetwork
             //check if it already exist
             if(neuron1==neuron2)
             {
-                //Debug.Log("Cant connect neuron to himself");
                 return;
             }
             foreach (var synapse in AllSynapses)
                 if (synapse.InputNeuron==neuron1 && synapse.OutputNeuron==neuron2)
                 {
-                    //Debug.Log("Synapse already exist");
                     return;
                 }
 
-            try
-            {
-                Synapse syn = new Synapse(neuron1, neuron2, SynapseInnovationNo);
-                AllSynapses.Add(syn);
-            }
-            catch
-            {
-                Constants.Con.visual.Assign(this);
-                Debug.Log("Nowa synapsa miedzy " + neuron1.InnovationNo + " a " + neuron2.InnovationNo);
-                Debug.Break();
-            }
+
+            Synapse syn = new Synapse(neuron1, neuron2, SynapseInnovationNo);
+            AllSynapses.Add(syn);
         }
 
         public void AddNeuron()
@@ -219,21 +207,15 @@ namespace NeuralNetwork
             oldSyn.OutputNeuron.InputSynapses.Remove(oldSyn);
             Neuron neuron = new Neuron(NeuronInnovationNo);
 
-            try
-            {
-                Synapse newSyn1 = new Synapse(oldSyn.InputNeuron, neuron, SynapseInnovationNo);
-                Synapse newSyn2 = new Synapse(neuron, oldSyn.OutputNeuron, SynapseInnovationNo);
 
-                HiddenLayers.Add(neuron);
-                AllSynapses.Add(newSyn1);
-                AllSynapses.Add(newSyn2);
-            }
-            catch
-            {
-                Constants.Con.visual.Assign(this);
-                Debug.Log("Nowy neuron o num " + neuron.InnovationNo + " miedzy " + oldSyn.InputNeuron.InnovationNo + " a " + oldSyn.OutputNeuron.InnovationNo);
-                Debug.Break();
-            }
+            Synapse newSyn1 = new Synapse(oldSyn.InputNeuron, neuron, SynapseInnovationNo);
+            newSyn1.Weight = 1;
+            Synapse newSyn2 = new Synapse(neuron, oldSyn.OutputNeuron, SynapseInnovationNo);
+            newSyn2.Weight = oldSyn.Weight;
+
+            HiddenLayers.Add(neuron);
+            AllSynapses.Add(newSyn1);
+            AllSynapses.Add(newSyn2);
         }
 
         public NEAT Crossover(NEAT partner)
@@ -299,40 +281,56 @@ namespace NeuralNetwork
             //Debug.Log("Koniec add synapse template");
         }
 
-        public bool SameSpecies(NEAT partner)
+        public float SameSpecies(NEAT partner)
         {
-            var synapseIenumerator = AllSynapses.GetEnumerator();
-            var partnerSynapseIenumerator = partner.AllSynapses.GetEnumerator();
-            synapseIenumerator.MoveNext();
-            bool excessSynapses = false;
+            if(partner==null)
+            {
+                Debug.Log("NULL partner");
+                Debug.Break();
+            }
+            //var synapseIenumerator = AllSynapses.GetEnumerator();
+            //var partnerSynapseIenumerator = partner.AllSynapses.GetEnumerator();
+            //synapseIenumerator.MoveNext();
+            float result = 0;
             int disjointGenes = 0;
             int excessGenes = 0;
             float weightDifference = 0;
-            int N = Mathf.Max(AllSynapses.Count, partner.AllSynapses.Count);
-            while (partnerSynapseIenumerator.MoveNext())
+            float N = Mathf.Max(AllSynapses.Count, partner.AllSynapses.Count);
+            foreach(var synapse in AllSynapses)
+                if (!partner.AllSynapses.Any(s1 => s1.InnovationNo == synapse.InnovationNo))
+                    disjointGenes++;
+            foreach(var synapse in partner.AllSynapses)
             {
-                if (!excessSynapses)
-                    while (synapseIenumerator.Current.InnovationNo < partnerSynapseIenumerator.Current.InnovationNo)
-                    {
-                        if (!synapseIenumerator.MoveNext())
-                        {
-                            excessSynapses = true;
-                            break;
-                        }
-                        if(synapseIenumerator.Current.InnovationNo < partnerSynapseIenumerator.Current.InnovationNo)
-                            disjointGenes++;
-                    }
-                if (excessSynapses)
-                    excessGenes++;
-                else if (synapseIenumerator.Current.InnovationNo > partnerSynapseIenumerator.Current.InnovationNo)
+                var syn1 = AllSynapses.Find(s1 => s1.InnovationNo == synapse.InnovationNo);
+                if (syn1 == null)
                     disjointGenes++;
                 else
-                    weightDifference += Mathf.Abs((float)(synapseIenumerator.Current.Weight - partnerSynapseIenumerator.Current.Weight));
+                    weightDifference += Mathf.Abs((float)(syn1.Weight - synapse.Weight));
             }
-            var result = Constants.Con.c1 * excessGenes / N + Constants.Con.c2 * disjointGenes / N + Constants.Con.c3 * weightDifference;
-            if (result < Constants.Con.delta_t)
-                return true;
-            return false;
+            result = Constants.Con.c1 * excessGenes / N + Constants.Con.c2 * disjointGenes / N + Constants.Con.c3 * weightDifference;
+
+            disjointGenes = 0;
+            weightDifference = 0;
+            N = Mathf.Max(HiddenLayers.Count, partner.HiddenLayers.Count)+OutputLayer.Count;
+            foreach (var neuronPair in OutputLayer.Zip(partner.OutputLayer))
+                weightDifference+= Mathf.Abs((float)(neuronPair.Key.Bias - neuronPair.Value.Bias));
+            foreach (var neuron in HiddenLayers)
+                if (!partner.HiddenLayers.Any(n1 => n1.InnovationNo == neuron.InnovationNo))
+                    disjointGenes++;
+            foreach (var neuron in partner.HiddenLayers)
+            {
+                var neu1 = HiddenLayers.Find(n1 => n1.InnovationNo == neuron.InnovationNo);
+                if (neu1 == null)
+                    disjointGenes++;
+                else
+                    weightDifference += Mathf.Abs((float)(neu1.Bias - neuron.Bias));
+            }
+            result += Constants.Con.c1 * excessGenes / N + Constants.Con.c2 * disjointGenes / N + Constants.Con.c3 * weightDifference;
+
+            return result;
+            //if (result < Constants.Con.delta_t)
+            //    return true;
+            //return false;
         }
     }
 }

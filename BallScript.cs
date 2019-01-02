@@ -15,6 +15,5 @@ public class BallScript : MonoBehaviour {
 	}
 
     public int InnovationNo;
-    public int NPL;
     public List<int> InputInnovationNo;
 }

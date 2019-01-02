@@ -1,15 +1,17 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
+using NeuralNetwork;
 
 public class Species{
 
     public List<Agent> members;
-    public Agent reprezentative
+    private NeuralNetwork.NEAT _reprezentative;
+    public NeuralNetwork.NEAT Reprezentative
     {
-        get
+        get { return _reprezentative; }
+        set
         {
-            return members[0];
+            _reprezentative = value;
         }
     }
     private bool _dead;
@@ -41,6 +43,7 @@ public class Species{
     public Species(Agent rep)
     {
         members = new List<Agent>();
+        Reprezentative = rep.brain;
         members.Add(rep);
         Dead = false;
         _name = SpeciesNo.ToString();
@@ -54,6 +57,62 @@ public class Species{
 
     public void PerformMatingRitual()
     {
+
+    }
+}
+
+public static class Speciacion
+{
+    public static void Speciacte(this List<Species> species, List<Agent> population)
+    {
+        //find new reprezentatives
+        foreach (var s in species)
+        {
+            Agent closest_a = null;
+            float min_score = Constants.Con.delta_t;
+            int i = 0;
+            int mini = 0;
+            foreach(var agent in population)
+            {
+                float score = agent.brain.SameSpecies(s.Reprezentative);
+                if (score < min_score)
+                {
+                    min_score = score;
+                    closest_a = agent;
+                    mini = i;
+                }
+                i++;
+            }
+            if (closest_a != null)
+            {
+                s.Reprezentative = closest_a.brain;
+                s.Add(closest_a);
+                population.RemoveAt(mini);
+            }
+            else
+                s.Dead = true;
+        }
+        species.RemoveAll(s => s.Dead);
+
+        //assign every agent to closest species
+        foreach (var agent in population)
+        {
+            Species closest = null;
+            float min_score = Constants.Con.delta_t;
+            foreach (var s in species)
+            {
+                float score = agent.brain.SameSpecies(s.Reprezentative);
+                if(score<min_score)
+                {
+                    min_score = score;
+                    closest = s;
+                }
+            }
+            if (closest != null)
+                closest.Add(agent);
+            else
+                species.Add(new Species(agent));
+        }
 
     }
 }

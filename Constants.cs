@@ -24,9 +24,13 @@ public class Constants : MonoBehaviour {
     public int input_layer = 8;
     public int output_layer = 4;
 
+    public float init_stdDev_synapse_value = 5;
+
     public float mutate_weights_chanse = 80;
     public float mutate_new_synapse_chanse = 5;
+    public float mutate_del_synapse_chanse = 5;
     public float mutate_new_neuron_chanse = 3f;
+    public float mutate_del_neuron_chanse = 3f;
     //public float chanse_that_gene_was_disabled_if_disabled_in_either_parent = 0.75;
     //public float sznasa na krzyżowanie międzygatunkowe 0.1
 

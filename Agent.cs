@@ -83,7 +83,7 @@ public class Agent : MonoBehaviour {
         }
     }
         
-    public bool SameSpecies(Agent partner)
+    public float SameSpecies(Agent partner)
     {
         return brain.SameSpecies(partner.brain);
     }

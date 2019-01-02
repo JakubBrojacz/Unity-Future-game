@@ -14,45 +14,19 @@ namespace NeuralNetwork
         public double Value { get; set; }
         public int InnovationNo { get; set; }
         public bool Done { get; set; } //if neuron value was already calculated
-        int _npl;
         public Vector3 position; //only for drawing... What a shame... If I could delete it
-        public int NPL
-        {
-            get
-            {
-                return _npl;
-            }
-            set
-            {
-                _npl = value;
-                if (_npl > 15)
-                    throw new System.Exception("NPL>15");
-                foreach (Synapse syn in OutputSynapses)
-                    if (syn.OutputNeuron.NPL < _npl + 1)
-                    {
-                        //Debug.Log("Zmiana NPL zagnieżdżona");
-                        //Debug.Log("NPL w " + InnovationNo + " powoduje zmiane w " + syn.OutputNeuron.InnovationNo + " z " + syn.OutputNeuron.NPL + " na " + (_npl+1));
-                        //Debug.Log("Lokalna specyfikacja:");
-                        //InputSynapses.PrintList(sss => "" + sss.InputNeuron.InnovationNo);
-                        //OutputSynapses.PrintList(sss => "" + sss.OutputNeuron.InnovationNo);
-                        syn.OutputNeuron.NPL = _npl + 1;
-                    }
-                        
-            }
-        }//max null path length
+
 
         public Neuron()
         {
-            Bias = (NeuralNet.RandomGenerator.NextDouble()*2-1)/5;
+            Bias = NeuralNet.RandomGenerator.NextGaussian(0, Constants.Con.init_stdDev_synapse_value); 
             InputSynapses = new List<Synapse>();
             OutputSynapses = new List<Synapse>();
             Done = false;
-            NPL = 0;
         }
-        public Neuron(int innovationno, int npl=0) : this()
+        public Neuron(int innovationno) : this()
         {
             InnovationNo = innovationno;
-            NPL = npl;
         }
         public Neuron(IEnumerable<Neuron> PreviousLayer) : this()
         {
@@ -124,7 +98,7 @@ namespace NeuralNetwork
 
         public Synapse()
         {
-            Weight = (NeuralNet.RandomGenerator.NextDouble()-0.5);
+            Weight = NeuralNet.RandomGenerator.NextGaussian(0,Constants.Con.init_stdDev_synapse_value);
         }
 
         public Synapse(Neuron input, Neuron output,int innovationno) : this(input,output)
@@ -138,8 +112,6 @@ namespace NeuralNetwork
             OutputNeuron = output;
             input.OutputSynapses.Add(this);
             output.InputSynapses.Add(this);
-            if (output.NPL < input.NPL + 1)
-                output.NPL = input.NPL + 1;
         }
     }
 
