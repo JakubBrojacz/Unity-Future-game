@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 namespace NeuralNetwork
 {
@@ -31,7 +32,7 @@ namespace NeuralNetwork
             var newNode = Instantiate(nodePrefab, new Vector3(0, 0, 0), Quaternion.identity).gameObject;
             newNode.transform.localScale = new Vector3(radius, radius, radius);
             newNode.GetComponent<BallScript>().InnovationNo = n.InnovationNo;
-            if (n.Value > 0.5)
+            if (n.OutputValue > 0.5)
                 newNode.GetComponent<Renderer>().material.color = new Color(0, 1, 0);
             nodes.Add(newNode);
             //calculate position
@@ -39,14 +40,19 @@ namespace NeuralNetwork
             if (nextPosition==null)
             {
                 float y_tmp = 0;
-                foreach (var syn in n.InputSynapses)
+                if (n.InputSynapses.Count > 0)
                 {
-                    newNode.GetComponent<BallScript>().InputInnovationNo.Add(syn.InputNeuron.InnovationNo);
-                    y_tmp +=ComputeNeuron(syn.InputNeuron, null).y;
+                    foreach (var syn in n.InputSynapses)
+                    {
+                        newNode.GetComponent<BallScript>().InputInnovationNo.Add(syn.InputNeuron.InnovationNo);
+                        y_tmp += ComputeNeuron(syn.InputNeuron, null).y;
+                    }
+                    if (n.InputSynapses.Count == 0)
+                        Debug.Break();
+                    y_tmp /= n.InputSynapses.Count;
                 }
-                if (n.InputSynapses.Count == 0)
-                    Debug.Break();
-                y_tmp /= n.InputSynapses.Count;
+                else
+                    y_tmp = initialPosittion.y;
                 position = new Vector3(initialPosittion.x + horizontal * offset * 2, y_tmp, 0);
                 horizontal++;
             }
@@ -71,7 +77,7 @@ namespace NeuralNetwork
                 gObject.GetComponent<LineRenderer>().SetPosition(0, n.position);
                 gObject.GetComponent<LineRenderer>().SetPosition(1, syn.InputNeuron.position);
                 i += 1;
-            }
+            };
             return n.position;
         }
 
@@ -86,7 +92,7 @@ namespace NeuralNetwork
 
             source.InputLayer.ForEach(neuron => neuron.Done = false);
             source.OutputLayer.ForEach(neuron => neuron.Done = false);
-            source.HiddenLayers.ForEach(neuron => neuron.Done = false);
+            source.HiddenLayers.Values.ToList().ForEach(neuron => neuron.Done = false);
             horizontal = 1;
 
             i = 0;

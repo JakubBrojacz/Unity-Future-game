@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿#define EXISTING_REPRESENTATIVE
+
+using System.Collections.Generic;
 using UnityEngine;
 using NeuralNetwork;
 
@@ -11,7 +13,7 @@ public class Species{
         get { return _reprezentative; }
         set
         {
-            _reprezentative = value;
+            _reprezentative = value.Copy();
         }
     }
     private bool _dead;
@@ -66,15 +68,16 @@ public static class Speciacion
     public static void Speciacte(this List<Species> species, List<Agent> population)
     {
         //find new reprezentatives
+#if EXISTING_REPRESENTATIVE
         foreach (var s in species)
         {
             Agent closest_a = null;
-            float min_score = Constants.Con.delta_t;
+            float min_score = Constants.Con.new_representative_max_distance;
             int i = 0;
             int mini = 0;
             foreach(var agent in population)
             {
-                float score = agent.brain.SameSpecies(s.Reprezentative);
+                float score = agent.brain.Distance(s.Reprezentative);
                 if (score < min_score)
                 {
                     min_score = score;
@@ -93,6 +96,7 @@ public static class Speciacion
                 s.Dead = true;
         }
         species.RemoveAll(s => s.Dead);
+#endif
 
         //assign every agent to closest species
         foreach (var agent in population)
@@ -101,8 +105,8 @@ public static class Speciacion
             float min_score = Constants.Con.delta_t;
             foreach (var s in species)
             {
-                float score = agent.brain.SameSpecies(s.Reprezentative);
-                if(score<min_score)
+                float score = agent.brain.Distance(s.Reprezentative);
+                if (score < min_score)
                 {
                     min_score = score;
                     closest = s;

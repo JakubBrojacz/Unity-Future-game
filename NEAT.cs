@@ -2,14 +2,28 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+using System;
 
 namespace NeuralNetwork
 {
     public class NEAT
     {
         public List<Neuron> InputLayer { get; set; }
-        public List<Neuron> HiddenLayers { get; set; }
+        public Dictionary<int,Neuron> HiddenLayers { get; set; }
         public List<Neuron> OutputLayer { get; set; }
+
+        public Dictionary<int,Synapse> AllSynapses { get; set; }
+
+        public static readonly System.Random RandomGenerator = new System.Random(0);
+        private static int _neuronInnovationNo = 0;
+        private static int _synapseInnovationNo = 0;
+
+        //TODO
+        //List<Innovations> during_one_generation
+        //to make sure that the same innovations during one generation will get the same innovationNo
+
+        //TODO 
+        //disabled genes
 
         public static int NeuronInnovationNo
         {
@@ -39,22 +53,11 @@ namespace NeuralNetwork
             }
         }
 
-        public List<Synapse> AllSynapses { get; set; }
-
-        public static readonly System.Random RandomGenerator = new System.Random();
-        private static int _neuronInnovationNo = 0;
-        private static int _synapseInnovationNo = 0;
-
-        //TODO
-        //List<Innovations> during_one_generation
-        //to make sure that the same innovations during one generation will get the same innovationNo
         
-        //TODO 
-        //disabled genes
 
         public NEAT(int inputSize, int outputSize, bool without_synapses = false)
         {
-            AllSynapses = new List<Synapse>();
+            AllSynapses = new Dictionary<int, Synapse>();
 
             int temporaryNeuronInnovationNumber = 0;
             InputLayer = new List<Neuron>();
@@ -83,19 +86,20 @@ namespace NeuralNetwork
             if (_neuronInnovationNo < temporaryNeuronInnovationNumber)
                 _neuronInnovationNo = temporaryNeuronInnovationNumber;
 
-            foreach (var neuron in OutputLayer)
-                AllSynapses.AddRange(neuron.InputSynapses);
             int temporarySynapseInnovationNumber = 0;
-            foreach(var syn in AllSynapses)
-            {
-                temporarySynapseInnovationNumber++;
-                syn.InnovationNo = temporarySynapseInnovationNumber;
-            }
+            foreach (var neuron in OutputLayer)
+                foreach(var syn in neuron.InputSynapses)
+                {
+                    temporarySynapseInnovationNumber++;
+                    syn.InnovationNo = temporarySynapseInnovationNumber;
+                    AllSynapses.Add(syn.InnovationNo,syn);
+                }
+                    
 
             if (_synapseInnovationNo < temporarySynapseInnovationNumber)
                 _synapseInnovationNo = temporarySynapseInnovationNumber;
 
-            HiddenLayers = new List<Neuron>();
+            HiddenLayers = new Dictionary<int, Neuron>();
         }
 
         public NEAT Copy()
@@ -103,8 +107,10 @@ namespace NeuralNetwork
             NEAT c = new NEAT(InputLayer.Count, OutputLayer.Count, true);
             foreach(var synapse in AllSynapses)
             {
-                c.AddSynapse(synapse);
+                c.AddSynapse(synapse.Value);
             }
+            foreach (var neuronpair in OutputLayer.Zip(c.OutputLayer))
+                neuronpair.Value.Bias = neuronpair.Key.Bias;
             return c;
         }
 
@@ -114,48 +120,57 @@ namespace NeuralNetwork
             List<double> outputValues = new List<double>();
             foreach (var neuron in OutputLayer)
             {
-                outputValues.Add(neuron.Value);
+                outputValues.Add(neuron.OutputValue);
             }
             return outputValues;
         }
 
         public void ForwardPropagation(IEnumerable<double> inputValues)
         {
-            //Debug.Log("poczatek forward prop");
             foreach (var neuron in InputLayer.Zip(inputValues))
-                neuron.Key.Value = neuron.Value;
+                neuron.Key.OutputValue = neuron.Value;
 
-            HiddenLayers.ForEach(neuron => neuron.Done = false);
+            HiddenLayers.Values.ToList().ForEach(neuron => neuron.Done = false);
 
             foreach (var neuron in OutputLayer)
-                neuron.CalculateValue_NEAT();
-            //Debug.Log("koniec forward prop");
+                neuron.CalculateValue_NEAT_feedforward();
         }
 
         public void Mutate()
         {
-            //Debug.Log("Poczatek mutate");
-            if (RandomGenerator.Next(100) < Constants.Con.mutate_weights_chanse)
+            if (RandomGenerator.NextDouble() < Constants.Con.mutate_weights_chanse)
             {
-                //Debug.Log("mutate: weights");
+                //Debug.Log("mutate");
                 OutputLayer.Mutate();
                 foreach (var neuron in HiddenLayers)
-                    neuron.Mutate();
+                    neuron.Value.Mutate();
             }
-            if(RandomGenerator.Next(100) < Constants.Con.mutate_new_neuron_chanse)
+            if(RandomGenerator.NextDouble() < Constants.Con.mutate_new_neuron_chanse)
             {
-                //Debug.Log("mutate: new neuron");
+                //Debug.Log("mutate");
                 if (AllSynapses.Count == 0)
                     return;
                 AddNeuron();
             }
-            if (RandomGenerator.Next(100) < Constants.Con.mutate_new_synapse_chanse) //according to offical NEAT document 5 in smaler species
+            if (RandomGenerator.NextDouble() < Constants.Con.mutate_del_neuron_chanse)
             {
-                //Debug.Log("mutate: new synapse");
+                //Debug.Log("mutate");
+                if (AllSynapses.Count == 0)
+                    return;
+                DelNeuron();
+            }
+            if (RandomGenerator.NextDouble() < Constants.Con.mutate_new_synapse_chanse)
+            {
+                //Debug.Log("mutate");
                 AddSynapse();
             }
-            //Debug.Log("Koniec mutate");
+            if (RandomGenerator.NextDouble() < Constants.Con.mutate_del_synapse_chanse)
+            {
+                //Debug.Log("mutate");
+                DelSynapse();
+            }
         }
+
         public void AddSynapse()
         {
             //Debug.Log("Poczatek add synapse");
@@ -165,14 +180,14 @@ namespace NeuralNetwork
             if (ineur1 < InputLayer.Count)
                 neuron1 = InputLayer[ineur1];
             else
-                neuron1 = HiddenLayers[ineur1 - InputLayer.Count];
+                neuron1 = HiddenLayers.Values.ToArray()[ineur1 - InputLayer.Count];
             int ineur2 = RandomGenerator.Next(OutputLayer.Count + HiddenLayers.Count);
             Neuron neuron2;
             if (ineur2 < OutputLayer.Count)
                 neuron2 = OutputLayer[ineur2];
             else
             {
-                neuron2 = HiddenLayers[ineur2 - OutputLayer.Count];
+                neuron2 = HiddenLayers.Values.ToArray()[ineur2 - OutputLayer.Count];
                 if (neuron1.ConnectionWouldMakeCycle(neuron2)) //lets not make cycles
                 {
                     Neuron tmp = neuron1;
@@ -187,22 +202,27 @@ namespace NeuralNetwork
                 return;
             }
             foreach (var synapse in AllSynapses)
-                if (synapse.InputNeuron==neuron1 && synapse.OutputNeuron==neuron2)
+                if (synapse.Value.InputNeuron==neuron1 && synapse.Value.OutputNeuron==neuron2)
                 {
                     return;
                 }
 
 
             Synapse syn = new Synapse(neuron1, neuron2, SynapseInnovationNo);
-            AllSynapses.Add(syn);
+            AllSynapses.Add(syn.InnovationNo,syn);
         }
 
         public void AddNeuron()
         {
+            if(!AllSynapses.Any())
+            {
+                AddSynapse();
+                return;
+            }
             //Debug.Log("Poczatek add neuron");
             int tmp = RandomGenerator.Next(AllSynapses.Count);
-            Synapse oldSyn = AllSynapses[tmp];
-            AllSynapses.RemoveAt(tmp);
+            Synapse oldSyn = AllSynapses.ToList()[tmp].Value;
+            AllSynapses.Remove(oldSyn.InnovationNo);
             oldSyn.InputNeuron.OutputSynapses.Remove(oldSyn);
             oldSyn.OutputNeuron.InputSynapses.Remove(oldSyn);
             Neuron neuron = new Neuron(NeuronInnovationNo);
@@ -213,9 +233,39 @@ namespace NeuralNetwork
             Synapse newSyn2 = new Synapse(neuron, oldSyn.OutputNeuron, SynapseInnovationNo);
             newSyn2.Weight = oldSyn.Weight;
 
-            HiddenLayers.Add(neuron);
-            AllSynapses.Add(newSyn1);
-            AllSynapses.Add(newSyn2);
+            HiddenLayers.Add(neuron.InnovationNo,neuron);
+            AllSynapses.Add(newSyn1.InnovationNo,newSyn1);
+            AllSynapses.Add(newSyn2.InnovationNo,newSyn2);
+        }
+
+        private void DelNeuron()
+        {
+            if (!HiddenLayers.Any())
+                return;
+            int tmp = RandomGenerator.Next(HiddenLayers.Count);
+            Neuron oldNeu = HiddenLayers.Values.ToList()[tmp];
+            foreach(var synapse in oldNeu.InputSynapses)
+            {
+                synapse.InputNeuron.OutputSynapses.Remove(synapse);
+                AllSynapses.Remove(synapse.InnovationNo);
+            }
+            foreach (var synapse in oldNeu.OutputSynapses)
+            {
+                synapse.OutputNeuron.InputSynapses.Remove(synapse);
+                AllSynapses.Remove(synapse.InnovationNo);
+            }
+            HiddenLayers.Remove(oldNeu.InnovationNo);
+        }
+
+        private void DelSynapse()
+        {
+            if (!AllSynapses.Any())
+                return;
+            int tmp = RandomGenerator.Next(AllSynapses.Count);
+            Synapse oldSyn = AllSynapses.Values.ToList()[tmp];
+            oldSyn.InputNeuron.OutputSynapses.Remove(oldSyn);
+            oldSyn.OutputNeuron.InputSynapses.Remove(oldSyn);
+            AllSynapses.Remove(oldSyn.InnovationNo);
         }
 
         public NEAT Crossover(NEAT partner)
@@ -224,64 +274,53 @@ namespace NeuralNetwork
             NEAT offspring = partner.Copy();
             foreach (var synapse in AllSynapses)
             {
-                foreach (var offspringSynapse in offspring.AllSynapses)
+                if(offspring.AllSynapses.ContainsKey(synapse.Key) && RandomGenerator.Next(2) == 0)
                 {
-                    if (synapse.InnovationNo == offspringSynapse.InnovationNo)
-                    {
-                        if (RandomGenerator.Next(2) == 0)
-                            offspringSynapse.Weight = synapse.Weight;
-                        break;
-                    }
+                    offspring.AllSynapses[synapse.Key].Weight = synapse.Value.Weight;
                 }
             }
             return offspring;
         }
         private void AddSynapse(Synapse template)
         {
-            //Debug.Log("Poczatek add synapse template");
+            if(AllSynapses.ContainsKey(template.InnovationNo))
+            {
+                Debug.Log("wtf??");
+                Debug.Break();
+            }
             Neuron neuron1=null, neuron2=null;
             if (template.InputNeuron.InnovationNo <= InputLayer.Count)
                 neuron1 = InputLayer[template.InputNeuron.InnovationNo-1];
             else
             {
-                foreach(var neuron in HiddenLayers)
-                    if(neuron.InnovationNo==template.InputNeuron.InnovationNo)
-                    {
-                        neuron1 = neuron;
-                        break;
-                    }
-                if(neuron1==null)
-                {
-                    neuron1 = new Neuron(template.InputNeuron.InnovationNo);
-                    neuron1.Bias = template.InputNeuron.Bias;
-                    HiddenLayers.Add(neuron1);
+                if (HiddenLayers.ContainsKey(template.InputNeuron.InnovationNo))
+                    neuron1 = HiddenLayers[template.InputNeuron.InnovationNo];
+                else
+                { 
+                    neuron1 = new Neuron(template.InputNeuron);
+                    HiddenLayers.Add(neuron1.InnovationNo,neuron1);
                 }
             }
             if (template.OutputNeuron.InnovationNo <= InputLayer.Count+OutputLayer.Count)
                 neuron2 = OutputLayer[template.OutputNeuron.InnovationNo - InputLayer.Count-1];
             else
             {
-                foreach (var neuron in HiddenLayers)
-                    if (neuron.InnovationNo == template.OutputNeuron.InnovationNo)
-                    {
-                        neuron2 = neuron;
-                        break;
-                    }
-                if (neuron2==null)
+                if (HiddenLayers.ContainsKey(template.OutputNeuron.InnovationNo))
+                    neuron2 = HiddenLayers[template.OutputNeuron.InnovationNo];
+                else
                 {
-                    neuron2 = new Neuron(template.OutputNeuron.InnovationNo);
-                    neuron2.Bias = template.OutputNeuron.Bias;
-                    HiddenLayers.Add(neuron2);
+                    neuron2 = new Neuron(template.OutputNeuron);
+                    HiddenLayers.Add(neuron2.InnovationNo, neuron2);
                 }
             }
 
             Synapse newSyn = new Synapse(neuron1, neuron2, template.InnovationNo);
             newSyn.Weight = template.Weight;
-            AllSynapses.Add(newSyn);
+            AllSynapses.Add(newSyn.InnovationNo,newSyn);
             //Debug.Log("Koniec add synapse template");
         }
 
-        public float SameSpecies(NEAT partner)
+        public float Distance(NEAT partner)
         {
             if(partner==null)
             {
@@ -292,41 +331,32 @@ namespace NeuralNetwork
             //var partnerSynapseIenumerator = partner.AllSynapses.GetEnumerator();
             //synapseIenumerator.MoveNext();
             float result = 0;
-            int disjointGenes = 0;
-            int excessGenes = 0;
-            float weightDifference = 0;
-            float N = Mathf.Max(AllSynapses.Count, partner.AllSynapses.Count);
-            foreach(var synapse in AllSynapses)
-                if (!partner.AllSynapses.Any(s1 => s1.InnovationNo == synapse.InnovationNo))
-                    disjointGenes++;
-            foreach(var synapse in partner.AllSynapses)
+            if(AllSynapses.Any() || partner.AllSynapses.Any())
             {
-                var syn1 = AllSynapses.Find(s1 => s1.InnovationNo == synapse.InnovationNo);
-                if (syn1 == null)
-                    disjointGenes++;
-                else
-                    weightDifference += Mathf.Abs((float)(syn1.Weight - synapse.Weight));
+                int disjointGenes = 0;
+                int excessGenes = 0;
+                float weightDifference = 0;
+                float N = Math.Max(AllSynapses.Count, partner.AllSynapses.Count);
+                disjointGenes = 2 * AllSynapses.Keys.Union(partner.AllSynapses.Keys).Count() - AllSynapses.Count - partner.AllSynapses.Count;
+                foreach (var synapseInnovationNo in AllSynapses.Keys.Intersect(partner.AllSynapses.Keys))
+                    weightDifference += Math.Abs((float)(AllSynapses[synapseInnovationNo].Weight - partner.AllSynapses[synapseInnovationNo].Weight));
+                result += (Constants.Con.c1 * excessGenes + Constants.Con.c2 * disjointGenes + Constants.Con.c3 * weightDifference)/N;
             }
-            result = Constants.Con.c1 * excessGenes / N + Constants.Con.c2 * disjointGenes / N + Constants.Con.c3 * weightDifference;
-
-            disjointGenes = 0;
-            weightDifference = 0;
-            N = Mathf.Max(HiddenLayers.Count, partner.HiddenLayers.Count)+OutputLayer.Count;
-            foreach (var neuronPair in OutputLayer.Zip(partner.OutputLayer))
-                weightDifference+= Mathf.Abs((float)(neuronPair.Key.Bias - neuronPair.Value.Bias));
-            foreach (var neuron in HiddenLayers)
-                if (!partner.HiddenLayers.Any(n1 => n1.InnovationNo == neuron.InnovationNo))
-                    disjointGenes++;
-            foreach (var neuron in partner.HiddenLayers)
+            //if(HiddenLayers.Any() || partner.HiddenLayers.Any())      OutputLayer.Count > 0 always
             {
-                var neu1 = HiddenLayers.Find(n1 => n1.InnovationNo == neuron.InnovationNo);
-                if (neu1 == null)
-                    disjointGenes++;
-                else
-                    weightDifference += Mathf.Abs((float)(neu1.Bias - neuron.Bias));
+                int disjointGenes = 0;
+                int excessGenes = 0;
+                float weightDifference = 0;
+                float N = Math.Max(HiddenLayers.Count, partner.HiddenLayers.Count)+OutputLayer.Count;
+                foreach (var neuronPair in OutputLayer.Zip(partner.OutputLayer))
+                    weightDifference += Mathf.Abs((float)(neuronPair.Key.Bias - neuronPair.Value.Bias));
+                disjointGenes = 2 * HiddenLayers.Keys.Union(partner.HiddenLayers.Keys).Count() - HiddenLayers.Count - partner.HiddenLayers.Count;
+                foreach (var neuronInnovationNo in HiddenLayers.Keys.Intersect(partner.HiddenLayers.Keys))
+                    weightDifference += Math.Abs((float)(HiddenLayers[neuronInnovationNo].Bias - partner.HiddenLayers[neuronInnovationNo].Bias));
+                result += (Constants.Con.c1 * excessGenes + Constants.Con.c2 * disjointGenes + Constants.Con.c3 * weightDifference) / N;
             }
-            result += Constants.Con.c1 * excessGenes / N + Constants.Con.c2 * disjointGenes / N + Constants.Con.c3 * weightDifference;
-
+            
+            
             return result;
             //if (result < Constants.Con.delta_t)
             //    return true;

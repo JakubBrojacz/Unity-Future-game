@@ -1,4 +1,6 @@
-﻿using System.Collections;
+﻿#define NEAT
+
+using System.Collections;
 using System.Collections.Generic;
 using System;
 using UnityEngine;
@@ -7,17 +9,20 @@ using UnityEngine.UI;
 using NeuralNetwork;
 using System.Linq;
 
-
-
 //game-object spawning agents and controlling their behaviour
 public class Population : MonoBehaviour {
 
 	// Use this for initialization
 	void Start () {        
-        random = new System.Random();
+        random = new System.Random(0);
         Constants.Con = con;
+#if NEAT
         con.visual = visual;
         visual.Init();
+        species = new List<Species>();
+#endif
+
+
 
         //List<Agent> testl = new List<Agent>();
         //for(int i=0;i<5;i++)
@@ -26,11 +31,9 @@ public class Population : MonoBehaviour {
         //    c.GetComponent<Agent>().Score = i;
         //    testl.Add(c.GetComponent<Agent>());
         //}
-        //for(int i=0;i<1000;i++)
+        //for (int i = 0; i < 1000; i++)
         //{
-        //    Agent tmpa;
-        //    FindParents(testl, out tmpa);
-        //    Debug.Log(tmpa.Score);
+        //    Debug.Log((int)(random.NextGaussian(0,4)));
         //}
         //Debug.Break();
 
@@ -38,10 +41,11 @@ public class Population : MonoBehaviour {
         for (int i = 0; i < populationSize; i++)
         {
             Transform c = Instantiate(agentPrefab, con.initial_position + new Vector3(0.5f, 0.5f, 0), Quaternion.identity);
-            //c.GetComponent<Agent>().brain = new NeuralNet(con.input_layer, 8, con.output_layer, 1);
             c.GetComponent<Agent>().Init();
+#if !NEAT
+            c.GetComponent<Agent>().brain = new NeuralNet(con.input_layer, 8, con.output_layer, 1);
+#else
             c.GetComponent<Agent>().brain = new NEAT(con.input_layer, con.output_layer, true);
-#if true
             c.GetComponent<Agent>().brain.AddSynapse();
             c.GetComponent<Agent>().brain.AddSynapse();
             c.GetComponent<Agent>().brain.Mutate();
@@ -50,7 +54,6 @@ public class Population : MonoBehaviour {
             c.GetComponent<Agent>().OnDeath += AgentDied;
             generation.Add(c.GetComponent<Agent>());
         }
-        species = new List<Species>();
         update_time_left = con.seconds_every_tic;
         simulation_ticks_left = con.number_of_ticks_every_simulation;
         number_of_alive = populationSize;
@@ -66,11 +69,20 @@ public class Population : MonoBehaviour {
             {
                 update_time_left = con.seconds_every_tic;
                 generation.ForEach(agent => UpdateAgent(agent));
-                if (species.Count > con.spexies_drawn)
-                    visual.Assign(species[con.spexies_drawn].Reprezentative);
+#if NEAT
+                if(con.draw_representative)
+                {
+                    if (species.Count > con.spexies_drawn)
+                        visual.Assign(species[con.spexies_drawn].Reprezentative);
+                    else
+                        visual.Assign(generation[0].brain);
+                }
                 else
-                    visual.Assign(generation[0].brain);
-                //visual.Assign(generation[con.spexies_drawn].brain);
+                    if (generation.Count > con.spexies_drawn)
+                        visual.Assign(generation[con.spexies_drawn].brain);
+                    else
+                        visual.Assign(generation[0].brain);
+#endif
                 simulation_ticks_left--;
             }
         }
@@ -86,7 +98,7 @@ public class Population : MonoBehaviour {
                 Debug.Log("Srednia: " + generation.Sum(a => a.Score)/generation.Count);
                 Debug.Log("Liczba najlepszych: " + generation.Sum(a => a.Score == generation[0].Score ? 1:0));
                 Debug.Log("Najlepszy wynik: " + generation[0].Score);
-#if false
+#if !NEAT
                 int i = 0;
                 foreach (var agent in generation)
                 {
@@ -115,8 +127,7 @@ public class Population : MonoBehaviour {
                     agent.Reset(new Vector3(con.initial_position.x + 0.5f, con.initial_position.y + 0.5f, agent.transform.position.z));
 
                 }
-#endif
-#if true
+#else
                 species.Speciacte(generation);
                 //calculate size of spieces in next generation
                 foreach (var s in species)
@@ -152,7 +163,7 @@ public class Population : MonoBehaviour {
                     tmp_str += "Licznosc gatunku " + s.Name + ": " + s.members.Count + "; Najwyzszy wynik: " + s.members[0].Score + Environment.NewLine;
 
                     //create next generation
-                    for (int i = 0; i < s.Score * 3.0 / 4.0; i++)
+                    for (int i = 0; i < s.Score * con.crossover_chanse; i++)
                     {
                         Transform offspring = Instantiate(agentPrefab, con.initial_position + new Vector3(0.5f, 0.5f, 0), Quaternion.identity);
                         offspring.GetComponent<Agent>().Init();
@@ -169,12 +180,12 @@ public class Population : MonoBehaviour {
                         offspring.GetComponent<Agent>().OnDeath += AgentDied;
                         generation.Add(offspring.GetComponent<Agent>());
                     }
-                    for (int i = 0; i < s.Score * 1.0 / 4.0; i++)
+                    for (int i = 0; i < s.Score * (1-con.crossover_chanse); i++)
                     {
                         Transform offspring = Instantiate(agentPrefab, con.initial_position + new Vector3(0.5f, 0.5f, 0), Quaternion.identity);
                         offspring.GetComponent<Agent>().Init();
                         Agent p1;
-                        FindParents(s.members, out p1);
+                        FindParents(s.members, out p1); 
                         offspring.GetComponent<Agent>().brain = p1.brain.Copy();
                         offspring.GetComponent<Agent>().brain.Mutate();
                         offspring.GetComponent<Agent>().OnDeath += AgentDied;
@@ -210,25 +221,11 @@ public class Population : MonoBehaviour {
         number_of_alive--;
     }
 
-    //void UpdateFood()
-    //{
-    //    //apples.RemoveAll(ap => ap.apples_left <= 0);
-    //    //int count = number_of_apples - apples.Count;
-    //    //for(int i=0;i<count;i++)
-    //    //{
-    //    //    Transform c = Instantiate(foodPrefab, con.initial_position + new Vector3(0.5f, 0.5f, 0), Quaternion.identity);
-    //    //}
-    //}
-
     public Transform agentPrefab;
     public int populationSize=100;
     public List<Agent> generation;
     private int number_of_alive;
     public List<Species> species;
-
-    //public Transform foodPrefab;
-    //public List<Food> apples;
-    //private int number_of_apples=5;
 
     public Tilemap tilemap;
 
@@ -318,45 +315,35 @@ public class Population : MonoBehaviour {
 
     private double FindColorInDircetion(string color,Vector3Int direction, Vector3Int origin)
     {
-        //returns 1/distance from tile of that given color (as string)
+#if FAR_SIGHT
+        returns 1/distance from tile of that given color (as string)
 
-
-        //var pos1 = origin;
-        //pos1 += direction;
-        //int i = 1;
-        //while (tilemap.GetTile(pos1) != null)
-        //{
-        //    if (tilemap.GetTile(pos1).name == color)
-        //    {
-        //        return 1.0f / i;
-        //    }
-        //    pos1 += direction;
-        //    i++;
-        //}
-        //return 0;
-
-
+        var pos1 = origin;
+        pos1 += direction;
+        int i = 1;
+        while (tilemap.GetTile(pos1) != null)
+        {
+            if (tilemap.GetTile(pos1).name == color)
+            {
+                return 1.0f / i;
+            }
+            pos1 += direction;
+            i++;
+        }
+        return 0;
+#else
         if (tilemap.GetTile(origin + direction).name == color)
         {      
             return 1;
         }
         return 0;
-
+#endif
     }
 
     private void FindParents(IEnumerable<Agent> list,out Agent parent1,out Agent parent2)
     {
-        //int i = 0;
-        //while(i<15)
-        //{
-        //    i++;
         FindParents(list, out parent1);
         FindParents(list, out parent2);
-        //    if (parent1 != parent2)
-        //        return;
-        //}
-
-        //throw new Exception("Too short list??");
     }
     private void FindParents(IEnumerable<Agent> list, out Agent parent)
     {

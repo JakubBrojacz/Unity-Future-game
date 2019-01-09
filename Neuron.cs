@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+using System;
 
 
 namespace NeuralNetwork
@@ -11,7 +12,7 @@ namespace NeuralNetwork
         public List<Synapse> InputSynapses { get; set; }
         public List<Synapse> OutputSynapses { get; set; }
         public double Bias { get; set; }
-        public double Value { get; set; }
+        public double OutputValue { get; set; }
         public int InnovationNo { get; set; }
         public bool Done { get; set; } //if neuron value was already calculated
         public Vector3 position; //only for drawing... What a shame... If I could delete it
@@ -19,7 +20,7 @@ namespace NeuralNetwork
 
         public Neuron()
         {
-            Bias = NeuralNet.RandomGenerator.NextGaussian(0, Constants.Con.init_stdDev_synapse_value); 
+            Bias = NeuralNet.RandomGenerator.NextGaussian(0, Constants.Con.init_stdDev_bias); 
             InputSynapses = new List<Synapse>();
             OutputSynapses = new List<Synapse>();
             Done = false;
@@ -36,17 +37,23 @@ namespace NeuralNetwork
             }
         }
 
-        public void CalculateValue()
+        public Neuron(Neuron neuron) : this()
         {
-            Value = Sigmoid.Output(InputSynapses.Sum(syn => syn.Weight * syn.InputNeuron.Value)+Bias);
+            InnovationNo = neuron.InnovationNo;
+            Bias = neuron.Bias;
         }
 
-        public void CalculateValue_NEAT()
+        public void CalculateValue()
+        {
+            OutputValue = Sigmoid.Output(InputSynapses.Sum(syn => syn.Weight * syn.InputNeuron.OutputValue)+Bias);
+        }
+
+        public void CalculateValue_NEAT_feedforward()
         {
             foreach(Synapse syn in InputSynapses)
             {
                 if (!syn.InputNeuron.Done)
-                    syn.InputNeuron.CalculateValue_NEAT();
+                    syn.InputNeuron.CalculateValue_NEAT_feedforward();
             }
             CalculateValue();
             Done = true;
@@ -76,15 +83,22 @@ namespace NeuralNetwork
 #else
             InputSynapses.ForEach(syn =>
             {
-                if (NeuralNet.RandomGenerator.Next(100) < 95)
-                    syn.Weight += (NeuralNet.RandomGenerator.NextDouble() - 0.5) / 30;
-                else
-                    syn.Weight = (NeuralNet.RandomGenerator.NextDouble() - 0.5);
+                var ran = NeuralNet.RandomGenerator.NextDouble();
+                if (ran < Constants.Con.mutate_percent_of_synapses_uniform)
+                    syn.Weight += NeuralNet.RandomGenerator.NextGaussian(0,Constants.Con.mutation_power_synapse);
+                else if (ran < Constants.Con.mutate_percent_of_synapses_uniform+Constants.Con.mutate_percent_of_synapses_new_values)
+                    syn.Weight = NeuralNet.RandomGenerator.NextGaussian(0, Constants.Con.init_stdDev_synapse);
+                syn.Weight = Math.Max(-30, Math.Min(30, syn.Weight));
             });
-            if (NeuralNet.RandomGenerator.Next(100) < 95)
-                Bias += (NeuralNet.RandomGenerator.NextDouble() - 0.5) / 30;
-            else
-                Bias = (NeuralNet.RandomGenerator.NextDouble() - 0.5);
+            {//bias
+                var ran = NeuralNet.RandomGenerator.NextDouble();
+                if (ran < Constants.Con.mutate_percent_of_biases_uniform)
+                    Bias += NeuralNet.RandomGenerator.NextGaussian(0, Constants.Con.mutation_power_bias);
+                else if(ran < Constants.Con.mutate_percent_of_synapses_uniform + Constants.Con.mutate_percent_of_biases_new_values)
+                    Bias = NeuralNet.RandomGenerator.NextGaussian(0, Constants.Con.init_stdDev_bias);
+                Bias = Math.Max(-30, Math.Min(30, Bias));
+            }
+            
 #endif
         }
     }
@@ -98,7 +112,7 @@ namespace NeuralNetwork
 
         public Synapse()
         {
-            Weight = NeuralNet.RandomGenerator.NextGaussian(0,Constants.Con.init_stdDev_synapse_value);
+            Weight = NeuralNet.RandomGenerator.NextGaussian(0,Constants.Con.init_stdDev_synapse);
         }
 
         public Synapse(Neuron input, Neuron output,int innovationno) : this(input,output)

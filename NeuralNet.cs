@@ -11,7 +11,7 @@ namespace NeuralNetwork
         public List<List<Neuron>> HiddenLayers { get; set; }
         public List<Neuron> OutputLayer { get; set; }
 
-        public static readonly System.Random RandomGenerator = new System.Random();
+        public static readonly System.Random RandomGenerator = new System.Random(0);
 
         public NeuralNet(int inputSize,int hiddenSize,int outputSize,int numHidden)
         {
@@ -39,7 +39,7 @@ namespace NeuralNetwork
             List<double> outputValues = new List<double>();
             foreach(var neuron in OutputLayer)
             {
-                outputValues.Add(neuron.Value);
+                outputValues.Add(neuron.OutputValue);
             }
             return outputValues;
         }
@@ -48,7 +48,7 @@ namespace NeuralNetwork
         {
             foreach(var neuron in InputLayer.Zip(inputValues))
             {
-                neuron.Key.Value = neuron.Value;
+                neuron.Key.OutputValue = neuron.Value;
             }
             foreach (var layer in HiddenLayers)
                 layer.ForEach(neuron => neuron.CalculateValue());

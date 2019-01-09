@@ -21,10 +21,6 @@ public class Agent : MonoBehaviour {
         tail = Instantiate(tail_prefab, transform.position, Quaternion.identity).gameObject;
         Score = 0.1;
     }
-    //private void OnDestroy()
-    //{
-    //    Destroy(tail);
-    //}
 
     public void MoveInDirection(Vector3 dir)
     {
@@ -82,12 +78,6 @@ public class Agent : MonoBehaviour {
                 OnDeath.Invoke(this, null);
         }
     }
-        
-    public float SameSpecies(Agent partner)
-    {
-        return brain.SameSpecies(partner.brain);
-    }
-
 
     private HashSet<Vector3Int> tiles = new HashSet<Vector3Int>();
 
